@@ -1,2 +1,2 @@
 # Neuroecon_ECoG
-Scripts for Task Programming and Analysis on Gambling ECoG Data (e.g. Connectivity, Lasso Decoding, Phase Encoding, etc.)
+Scripts for Programming and Analysis on ECoG Data of Self/Social Gambling Task (e.g. Connectivity, Lasso Decoding, Phase Encoding, etc.)
