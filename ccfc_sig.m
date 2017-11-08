@@ -2,7 +2,6 @@
 clear
 close all
 
-
 load subj_globals
 load behav_globals
 load signal  % raw signal recording of 64 channels for one subject
