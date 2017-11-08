@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-# Gamble game
-# Joshua Moller-Mara
-# Version 1.2 (June 4th, 2014)
+# Social Gamble Game 
+# Weilun Ding & Joshua Moller-Mara
+# Version 2.1 (2014-2017)
 
 import pygame, sys, csv, time, thread, Queue, random
 from pygame.locals import *
@@ -64,19 +64,21 @@ class RoundInfo:
                 return (riskVal, safeVal)
             return (safeVal, riskVal)
         #csvrow[1] = '30' # gamble profit now set to $30
-        safePay, riskPay, riskShow, riskHide, riskSide, trialType= csvrow
+        safePay, riskPay, riskShow, riskHide, riskSide, trialType, Question, SelfSide= csvrow
         self.payment = riskswap(riskSide, int(riskPay), int(safePay))
         self.isRisk  = riskswap(riskSide, True, False)
         self.showNum = riskswap(riskSide, int(riskShow), None)
         self.hideNum = riskswap(riskSide, int(riskHide), None)
         self.origline = csvrow
         self.roundtype = trialType
+        self.question=Question
+        self.isSelf=riskswap(SelfSide,True, False)
 
     def dictOut(self):
         return dict([(name, item)
                       for name, item in
                       zip(["Safe.Pay", "Risk.Pay", "Risk.Shown",
-                           "Risk.Hidden", "Risk.Side","Trial.Type"], 
+                           "Risk.Hidden", "Risk.Side","Trial.Type","Question","SelfSide"], 
                           self.origline)])
     
 def readInfo(thefile, nrounds= 1000):
@@ -87,7 +89,7 @@ def readInfo(thefile, nrounds= 1000):
     lenrounds = min(len(rounds_list), nrounds)
     #rounds_list = random.sample(rounds_list, lenrounds)
     print "Payoffs read from " + thefile
-    print "Number of rounds = " + str(nrounds)
+    print "Number of rounds = " + str(lenrounds)
     return rounds_list
 
 # nrounds = 1
@@ -111,7 +113,7 @@ def setupWriters(SID, practice):
     TimeStamp = csv.writer(TimeFile)
     theOrder = [ "Round", "Event", "Choice", "Time",
                  "Safe.Pay", "Risk.Pay", "Risk.Shown", "Risk.Hidden", "Risk.Side",
-                 'RiskyOrSafeChoice','Profit','TotalProfit']
+                 'RiskyOrSafeChoice','Profit','TotalProfit',"Question","SelfSide","Trial.Type"]
     TimeStamp.writerow(theOrder)
     TimeFile.flush()
 
@@ -132,11 +134,13 @@ def profWrite(lMessage):
     proffile.flush()
 
 class Choice:
+    
     """ Draws a square area displaying:
     Payment
     Number of presses necessary
     Time needed to complete """
     def __init__(self, coord, size):
+        
         self.size = size
         self.coord = coord
         self.x_pos = coord[0]
@@ -150,12 +154,16 @@ class Choice:
         self.numberfontcolor = numberfontcolor
         self.normalcolor = normalcolor
         self.selectcolor = selectcolor
+        #self.stagename=stagename
 
     def update(self, roundInfo, ind):
+        global stagename, cur_round
         self.isRisk = roundInfo.isRisk[ind]
         self.payment = roundInfo.payment[ind]
         self.showNum = roundInfo.showNum[ind]
         self.hideNum = roundInfo.hideNum[ind]
+        self.isSelf =roundInfo.isSelf[ind]
+        #self.cur_question=roundInfo.question
         self.profit = self.payment
         if self.isRisk:
             self.profit = self.payment if self.hideNum > self.showNum else 0
@@ -167,6 +175,8 @@ class Choice:
         self.numberfontcolor = numberfontcolor
         self.normalcolor = normalcolor
         self.selectcolor = selectcolor
+        self.stage=stagename
+        self.questiontext=cur_round.question
 
     def reveal(self):
         self.isReveal = True
@@ -179,22 +189,34 @@ class Choice:
         self.numberfontcolor = numberwrongcolor
 
     def draw(self):
-        screen.blit(liltargetObj, ((width-liltargetsize)/2, (height-liltargetsize)/2 - 30))
-
+        global cur_round
+        if self.stage !="Question":
+            screen.blit(liltargetObj, ((width-liltargetsize)/2, (height-liltargetsize)/2 - 30))
+        if self.stage =="Question":
+            targetMsg = self.questiontext
+            
+            writeOneLine(targetMsg, (width/2, (height+targetsize)/10-30), pygame.font.Font(None, 50))
         pygame.draw.rect(screen, self.normalcolor, self.rect)
         if self.bordercolor is not None:
             pygame.draw.rect(screen, self.bordercolor, self.rect, 3)
         elif self.selected:
             pygame.draw.rect(screen, self.selectcolor, self.rect)
             pygame.draw.rect(screen, selectbordercolor, self.rect, 3)
-        if self.isRisk:
+        if self.isRisk and self.stage!="Question":
             self.drawRisk()
-        else:
+        elif not self.isRisk and self.stage!="Question":
             self.drawSafe()
+        if self.isSelf and self.stage=="Question":
+            self.drawSafe()
+        elif not self.isSelf and self.stage=="Question":
+            self.drawRisk()
 
     def drawSafe(self):
-        global isChoiceBlock, confirmed, subjChoice
-        
+        global isChoiceBlock, confirmed, subjChoice, stagename, cur_question
+        movedown = 35
+        psurf=personObj
+        prect = psurf.get_rect()
+        prect.center = (self.rect.center[0], self.rect.center[1]+movedown)
         if self.isReveal:
             
             if (not isChoiceBlock) and (not confirmed):
@@ -212,6 +234,10 @@ class Choice:
             else:
                 writeMultipleLinesHelper(["${0}".format(self.payment)],
                                 (self.coord[0], self.coord[1]), self.smallfont, color = self.fontcolor)
+        elif self.stage=="Question":
+            writeMultipleLinesHelper(["Self"],
+                                (prect.midtop[0],prect.midtop[1]-20), self.smallfont, color = self.fontcolor) 
+            screen.blit(personObj, (prect[0], prect[1]))
         else:
             writeMultipleLinesHelper(["${0}".format(self.payment)],
                                 (self.coord[0], self.coord[1]), self.smallfont, color = self.fontcolor)
@@ -220,16 +246,17 @@ class Choice:
         global winlose, subjChoice, isChoiceBlock,confirmed
     
         movedown = 35
+        if self.stage!="Question":
 
-        selectInd = 1 if self.selected else 0
+            selectInd = 1 if self.selected else 0
 
-        psurf = scaledWheelObjs[self.showNum]
-        prect = psurf.get_rect()
-        prect.center = (self.rect.center[0], self.rect.center[1]+movedown)
-        screen.blit(psurf, (prect[0], prect[1]))
-        screen.blit(centerdotObj, (prect[0], prect[1]))
+            psurf = scaledWheelObjs[self.showNum]
+            prect = psurf.get_rect()
+            prect.center = (self.rect.center[0], self.rect.center[1]+movedown)
+            screen.blit(psurf, (prect[0], prect[1]))
+            screen.blit(centerdotObj, (prect[0], prect[1]))
 
-        wheelcenter = (self.rect.center[0], self.rect.center[1]+movedown)
+            wheelcenter = (self.rect.center[0], self.rect.center[1]+movedown)
         # pygame.draw.circle(screen, (200, 0, 0), wheelcenter, 100)
         # pygame.draw.circle(screen, (0, 0, 0), wheelcenter, 100, 2)
 
@@ -237,7 +264,7 @@ class Choice:
         # pygame.draw.arc(screen, (0, 0, 0), arcrect, -90, -90-360*int(self.showNum)/11, 3)
 
 
-        grey = self.normalcolor
+            grey = self.normalcolor
         #writeOneLine(str(self.showNum), ((prect.left + prect.centerx)/2, prect.centery), self.smallfont, color = self.numberfontcolor)
         if self.isReveal:
             # endpt = (prect.center[0]+ends[int(self.hideNum)][0], prect.center[1]+ends[int(self.hideNum)][1])
@@ -254,8 +281,8 @@ class Choice:
             newcolor = wincolor if self.hideNum > self.showNum else losecolor
             winlose = 2 if self.hideNum > self.showNum else 1
 
-            wintexts = ["You win", "${0}".format(self.payment)] if cur_type == "Self" else ["You win", "${0} for charity".format(self.payment)]
-            losetexts = ["You lose!"] if cur_type == "Self" else ["You win nothing"," for charity!"]
+            wintexts = ["You win", "${0}".format(self.payment)] if cur_type == "Self" else ["You win", "${0} for Others".format(self.payment)]
+            losetexts = ["You lose!"] if cur_type == "Self" else ["You win nothing"," for Others!"]
 
             #finalfont = pygame.font.Font(None, 55) if cur_type == "social" and self.hideNum <= self.showNum else self.smallfont
             finalfont = pygame.font.Font(None, 35) if cur_type == "Social" else self.smallfont
@@ -264,8 +291,8 @@ class Choice:
                 newcolor = losecolor if self.hideNum > self.showNum else wincolor
                 winlose = 0 if self.hideNum < self.showNum else 1
 
-                wintexts = ["You would","have won ${0}".format(self.payment)] if cur_type == "Self" else ["You would have","won ${0} for charity".format(self.payment)]
-                losetexts = ["You would", "have lost!"] if cur_type == "Self" else ["You would have", "won nothing for charity!"]
+                wintexts = ["You would","have won ${0}".format(self.payment)] if cur_type == "Self" else ["You would have","won ${0} for Others".format(self.payment)]
+                losetexts = ["You would", "have lost!"] if cur_type == "Self" else ["You would have", "won nothing for Others!"]
 
                 #finalfont = pygame.font.Font(None, 35) if cur_type == "social" else self.smallfont
                 finalfont = pygame.font.Font(None, 35)
@@ -285,10 +312,16 @@ class Choice:
             #writeOneLine(str(self.hideNum), ((prect.right + prect.centerx)/2, prect.centery), self.smallfont, color = newcolor)
             writeMultipleLinesHelper(updatetext,
                                       (prect.midtop[0],prect.midtop[1]-10), finalfont, color = newcolor, bottom = True) 
+        elif self.stage=="Question":
+            psurf = crossObj
+            prect = psurf.get_rect()
+            prect.center = (self.rect.center[0], self.rect.center[1]+movedown)
+            writeMultipleLinesHelper(["Others"],
+                                (prect.midtop[0],prect.midtop[1]-20), self.smallfont, color = self.fontcolor) 
+            screen.blit(crossObj, (prect[0], prect[1]))
         else:
             writeMultipleLinesHelper(["${0}".format(self.payment)],
-                                     (prect.midtop[0],prect.midtop[1]-20), self.smallfont, color = self.fontcolor) 
-
+                                     (prect.midtop[0],prect.midtop[1]-20), self.smallfont, color = self.fontcolor)
 def sleepTimer(time_to_wait, message):
     time.sleep(time_to_wait/1000.0)
     pygame.event.post(pygame.event.Event(USEREVENT, key=message))
@@ -495,7 +528,7 @@ def writeQueue(roundnum,message):
 
 
 def writeChoice(roundnum,choice):
-    global lchoice, rchoice, totalprofit
+    global lchoice, rchoice, totalprofit, cur_question
     """Writes a timestamped row in the log file with message."""
     now = time.time()
     print "Subject choice logged at " + str(now)
@@ -507,6 +540,8 @@ def writeChoice(roundnum,choice):
         pickedchoice = lchoice if choice == 'L' else rchoice
         safeOrRisk = "Risk" if pickedchoice.isRisk else "Safe"
     eventstring = "Chose" if isChoiceBlock else "Computer Chose"
+    if cur_question:
+        eventstring="Question"
     cline = CSVLine(dict({ "Event" : eventstring,
                            "Choice" : choice,
                            "RiskyOrSafeChoice" : safeOrRisk,
@@ -526,7 +561,7 @@ def rotatePolygon(polygon, theta):
         rotatedPolygon.append(( corner[0]*math.cos(theta)-corner[1]*math.sin(theta) , corner[0]*math.sin(theta)+corner[1]*math.cos(theta)) )
     return rotatedPolygon
 
-def initialize(leftkey, rightkey, choicetime):
+def initialize(leftkey, rightkey, choicetime,experimenter):
     """Initialize the windowing system as well as variables needed to run the game.
     Initialize fonts.
     This should only be called once in the main program. """
@@ -539,6 +574,12 @@ def initialize(leftkey, rightkey, choicetime):
     global choiceTime
     global pauseScreen
     global ends, triangles, angles
+
+    name_pic={"Anna":"anna","Ignacio":"ignacio",
+              "Ming":"ming","Gil":"gil",
+              "Nick":"nick","Zhihao":"zhihao",
+              "Weilun":"weilun",
+              "Not listed":"not_listed"}
 
     lbuttons = [ord(leftkey)]
     if ord(leftkey) >= ord("0") and ord(leftkey) <= ord("9"):
@@ -571,11 +612,11 @@ def initialize(leftkey, rightkey, choicetime):
     centerdotObj = pygame.image.load('data/centerdot.png')
     #arrowObj = pygame.image.load('data/arrow200.png')
 
-    personObj = pygame.image.load('data/personal123.png')
-    crossObj = pygame.image.load('data/cross.png')
+    personObj = pygame.image.load('data/person.png')
+    crossObj = pygame.image.load('data/experimenters/'+name_pic[experimenter]+'.png')
     personObj = pygame.transform.smoothscale(personObj, (targetsize,targetsize))
     crossObj = pygame.transform.smoothscale(crossObj, (targetsize,targetsize))
-    lilpersonObj = pygame.image.load('data/personal123.png')
+    lilpersonObj = pygame.image.load('data/person.png')
     lilpersonObj = pygame.transform.smoothscale(lilpersonObj, (liltargetsize, liltargetsize))
     lilcrossObj = pygame.transform.smoothscale(crossObj, (liltargetsize, liltargetsize))
     screen = pygame.Surface((800, 600), pygame.SRCALPHA, 32)
@@ -638,6 +679,7 @@ def roundSetup(thefile, SID, numChoiceRounds=1000,  numNoChoiceRounds = 1000, pr
     noPassiveBlock=noPassive
     
     timing = {"NewRound" : random.uniform(1000,1000)/speedup,
+              "NewSet": random.uniform(1500,1500)/speedup,
               "GamePresent": random.uniform(500,500)/speedup,
               "ChoicePresentation" : random.uniform(500,500)/speedup,
               "SubjectChoice" : (choiceTime * 1000)/speedup,
@@ -736,8 +778,8 @@ def main(doInstructions=True):
     global lchoice, rchoice
     global isPractice, isFirstRun, isChoiceBlock, noPassiveBlock
     global didInit
-    global targetObj, liltargetObj
-    global cur_type
+    global targetObj, liltargetObj,personObj,crossObj
+    global cur_type, cur_question, cur_round
 
     lchoice = Choice((width/2 - width/4 -20, height/2 - 20), (width/3 + 20, height - 100 -100))
     rchoice = Choice((width/2 + width/4 + 20, height/2 - 20), (width/3 + 20, height - 100 -100))
@@ -769,7 +811,7 @@ def main(doInstructions=True):
             "",
             'Click or Press ENTER to continue.'])
     else:
-        message(['In the next '+str(nrounds)+' choices (self/charity),',
+        message(['In the next '+str(nrounds)+' choices (Self/Others),',
                 'select whether you want to bet for $30',
                 'or ','keep the $10 prize.',
                 "",
@@ -790,7 +832,9 @@ def main(doInstructions=True):
             cur_round = rounds_list[roundnum]
             cur_type = cur_round.roundtype # social/non-social
             pre_cur_type=rounds_list[roundnum-1].roundtype if roundnum>=1 else "First Trial"
-
+      
+            cur_question=False
+            
             if pre_cur_type != cur_type:
                 screen.blit(background, (0, 0))
                 canRespond = False
@@ -800,13 +844,13 @@ def main(doInstructions=True):
                 #whiteOut()
                 screen.blit(targetObj, ((width-targetsize)/2, (height-targetsize)/2 - 30))
             
-                targetMsg = "Playing for Self" if cur_type == "Self" else "Playing for Charity"
+                targetMsg = "Play for Self" if cur_type == "Self" else "Play for Others"
             
                 writeOneLine(targetMsg, (width/2, (height+targetsize)/2), pygame.font.Font(None, 50))
                 writeQueue(roundnum, "NewRound Target: "+cur_type)
                 #flipupdate()
                 flipupdate()
-                wait(timing["NewRound"])
+                wait(timing["NewSet"])
                 #flipupdate()
                 #screen.blit(background, (0, 0))
                 #flipupdate()
@@ -909,6 +953,63 @@ def main(doInstructions=True):
             if subjChoice is not None:
                 sounds[winlose].play()
             wait(timing["Reveal"])
+
+            cur_question = True if cur_round.question !='' else False # social/non-social
+
+            if cur_question :
+                            # 
+            # Second slide: Display choices (Can't respond)
+            # 
+                canRespond = False
+                stagename = "Question"
+
+                
+                lchoice.update(cur_round, 0)
+                rchoice.update(cur_round, 1)
+                whiteOut()
+                
+                #wait(timing["SubjectChoice"])
+                lchoice.draw()
+                rchoice.draw()
+
+
+            # 
+            # Third slide: SubjectChoice
+            # 
+                canRespond = True
+                stagename = "SubjectChoice"
+                subjChoice = None
+                lchoice.bordercolor = readycolor         # Yellow border
+                rchoice.bordercolor = readycolor
+                whiteOut()
+                lchoice.draw()
+                rchoice.draw()
+                writeQueue(roundnum,"SubjectChoice")
+                flipupdate(0)
+                wait(timing["SubjectChoice"])
+
+
+            #
+            # Fourth slide: Choice confirmation
+            #
+                lchoice.bordercolor = None
+                rchoice.bordercolor = None
+                if subjChoice is None:
+                    lchoice.bordercolor = noselectcolor
+                    rchoice.bordercolor = noselectcolor
+                    writeChoice(roundnum, 'T')
+                stagename = "ChoiceConfirmation"
+                if subjChoice == 0:
+                    lchoice.selected = True
+                elif subjChoice == 1:
+                    rchoice.selected = True
+                whiteOut()
+                lchoice.draw()
+                rchoice.draw()
+                writeQueue(roundnum,"ChoiceConfirmation")
+                flipupdate()
+                jiggle = random.choice([0, 50, 100, 150, 200, 250])
+                wait(timing["ChoiceConfirmation"])
 
 
         #
