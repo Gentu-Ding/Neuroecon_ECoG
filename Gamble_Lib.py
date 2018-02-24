@@ -281,8 +281,8 @@ class Choice:
             newcolor = wincolor if self.hideNum > self.showNum else losecolor
             winlose = 2 if self.hideNum > self.showNum else 1
 
-            wintexts = ["You win", "${0}".format(self.payment)] if cur_type == "Self" else ["You win", "${0} for Others".format(self.payment)]
-            losetexts = ["You lose!"] if cur_type == "Self" else ["You win nothing"," for Others!"]
+            wintexts = ["You win", "${0}!".format(self.payment)] if cur_type == "Self" else ["You win", "${0} for ".format(self.payment) + exper+"!"]
+            losetexts = ["You lose!"] if cur_type == "Self" else ["You win nothing"," for " +exper+"!"]
 
             #finalfont = pygame.font.Font(None, 55) if cur_type == "social" and self.hideNum <= self.showNum else self.smallfont
             finalfont = pygame.font.Font(None, 35) if cur_type == "Social" else self.smallfont
@@ -291,8 +291,8 @@ class Choice:
                 newcolor = losecolor if self.hideNum > self.showNum else wincolor
                 winlose = 0 if self.hideNum < self.showNum else 1
 
-                wintexts = ["You would","have won ${0}".format(self.payment)] if cur_type == "Self" else ["You would have","won ${0} for Others".format(self.payment)]
-                losetexts = ["You would", "have lost!"] if cur_type == "Self" else ["You would have", "won nothing for Others!"]
+                wintexts = ["You would","have won ${0}!".format(self.payment)] if cur_type == "Self" else ["You would have","won ${0} for ".format(self.payment) +exper +"!"]
+                losetexts = ["You would", "have lost!"] if cur_type == "Self" else ["You would have", "won nothing for "+exper+"!"]
 
                 #finalfont = pygame.font.Font(None, 35) if cur_type == "social" else self.smallfont
                 finalfont = pygame.font.Font(None, 35)
@@ -316,7 +316,7 @@ class Choice:
             psurf = crossObj
             prect = psurf.get_rect()
             prect.center = (self.rect.center[0], self.rect.center[1]+movedown)
-            writeMultipleLinesHelper(["Others"],
+            writeMultipleLinesHelper([exper],
                                 (prect.midtop[0],prect.midtop[1]-20), self.smallfont, color = self.fontcolor) 
             screen.blit(crossObj, (prect[0], prect[1]))
         else:
@@ -573,7 +573,7 @@ def initialize(leftkey, rightkey, choicetime,experimenter):
     global lbuttons, rbuttons, lbuttonName, rbuttonName
     global choiceTime
     global pauseScreen
-    global ends, triangles, angles
+    global ends, triangles, angles, exper
 
     name_pic={"Anna":"anna","Ignacio":"ignacio",
               "Ming":"ming","Gil":"gil",
@@ -611,7 +611,7 @@ def initialize(leftkey, rightkey, choicetime,experimenter):
     scaledArrowObjs = [pygame.transform.smoothscale(i, (210, 210)) for i in arrowObjs]
     centerdotObj = pygame.image.load('data/centerdot.png')
     #arrowObj = pygame.image.load('data/arrow200.png')
-
+    exper=experimenter
     personObj = pygame.image.load('data/person.png')
     crossObj = pygame.image.load('data/experimenters/'+name_pic[experimenter]+'.png')
     personObj = pygame.transform.smoothscale(personObj, (targetsize,targetsize))
@@ -684,7 +684,7 @@ def roundSetup(thefile, SID, numChoiceRounds=1000,  numNoChoiceRounds = 1000, pr
               "ChoicePresentation" : random.uniform(500,500)/speedup,
               "SubjectChoice" : (choiceTime * 1000)/speedup,
               "ChoiceConfirmation" : random.uniform(500,750)/speedup,
-              "Reveal" : random.uniform(500,750)/speedup,
+              "Reveal" : random.uniform(1000,1100)/speedup,   #random.uniform(500,750)/speedup,
               "PausedScreen" : 10800000}
 
 
@@ -844,7 +844,7 @@ def main(doInstructions=True):
                 #whiteOut()
                 screen.blit(targetObj, ((width-targetsize)/2, (height-targetsize)/2 - 30))
             
-                targetMsg = "Play for Self" if cur_type == "Self" else "Play for Others"
+                targetMsg = "Play for Self" if cur_type == "Self" else "Play for "+ exper
             
                 writeOneLine(targetMsg, (width/2, (height+targetsize)/2), pygame.font.Font(None, 50))
                 writeQueue(roundnum, "NewRound Target: "+cur_type)
@@ -871,7 +871,7 @@ def main(doInstructions=True):
             jiggle = random.choice([0, 50, 100, 150, 200, 250])
             wait(timing["NewRound"])
             screen.blit(background, (0, 0))
-            whiteOut()
+            #whiteOut()
             flipupdate()
 
             #cur_round = rounds_list[roundnum]
@@ -908,7 +908,7 @@ def main(doInstructions=True):
             lchoice.draw()
             rchoice.draw()
             writeQueue(roundnum,"SubjectChoice")
-            flipupdate(0)
+            flipupdate(1)
             wait(timing["SubjectChoice"])
 
 
