@@ -112,6 +112,16 @@ def displayImage(filepath, stage="Message"):
     flipupdate()
     wait(timing["PausedScreen"])
 
+def promptRepeat():
+    global stagename, screen, timing, doRepeat, roundnum
+
+    displayImage("Instructions_Strong/Experimenter_prompt.png", "Repeat")
+    if doRepeat:
+        roundnum = 0
+        MainEvent(screen,Data,DataFile,Pay,PayFile,TimeStamp,TimeFile, OpponentFile, StartTime,SID,'strong',doInstructions=False,practice=1)
+        promptRepeat()
+        
+
 def instructions():
     # Instructions
     message(["Patent Race Task",
@@ -161,7 +171,7 @@ def instructions():
              "",
              "Click or Press ENTER to continue"])
 
-    #displayImage("data/prompt-practice.png")
+    displayImage("Instructions_Strong/Practice_prompt.png")
     # message(["You will receive no payment",
     #          "for playing this game,",
     #          "but please try to make",
@@ -172,7 +182,7 @@ def instructions():
     # message(["Click or Press ENTER",
     #          "to start the game"])
 
-
+        
 def drawchoicebars(InvestA):
     bar(EndowmentA,screen,BoxSize,Position1,BackgroundColor, BoxColor,1)
     bar(InvestA,screen, BoxSize,Position1,BackgroundColor, BoxColorGrey,0)
@@ -429,12 +439,12 @@ def waitforspacebar():
     while (event.type != KEYDOWN) or (event.type == KEYDOWN and event.key != K_SPACE):
             event=pygame.event.wait()
 
-def GetPayRound(NoPayRounds, noofgames):   
+def GetPayRound(PayRounds, noofgames):   
     tmplist = []
     for index in range(noofgames):
-        tmplist.append(index)
+        tmplist.append(index+1)
         
-    for index in range(noofgames-NoPayRounds):
+    for index in range(noofgames-PayRounds):
         tmplist.pop(random.randrange(len(tmplist)))
         
     return tmplist
@@ -455,7 +465,7 @@ def Hurdle(Dist):
             break
     return idx
 
-def MainEvent(screen,Data,DataFile,Pay,PayFile, TimeStamp,TimeFile, OpponentFile, StartTime, SID, role,doInstructions):                    
+def MainEvent(screen,Data,DataFile,Pay,PayFile, TimeStamp,TimeFile, OpponentFile, StartTime, SID, role,doInstructions,practice):                    
     global Mainlock
     global End
     global FinalPayoff
@@ -466,8 +476,17 @@ def MainEvent(screen,Data,DataFile,Pay,PayFile, TimeStamp,TimeFile, OpponentFile
     
     
     rounds = 20
-    NoPayRounds = 0
+    #PayRounds = rounds
     pair = 14
+
+    if practice==True:
+        rounds=1
+
+    PayRounds = 10
+        
+        
+    
+        
 
     
     
@@ -502,7 +521,7 @@ def MainEvent(screen,Data,DataFile,Pay,PayFile, TimeStamp,TimeFile, OpponentFile
     BoxColorDarkGrey = 84,84,84
     
       
-    RoundPaid = GetPayRound(NoPayRounds, rounds)
+    RoundPaid = GetPayRound(PayRounds, rounds)
 
     # read opponent's file
     tmpData =GetList(OpponentFile)
@@ -616,7 +635,7 @@ def MainEvent(screen,Data,DataFile,Pay,PayFile, TimeStamp,TimeFile, OpponentFile
         #print textA
         
         #MainLock.acquire()
-        TimeStamp.writerow([round,'PresentGame',str(time.clock()-StartTime)])
+        TimeStamp.writerow([round,practice,'PresentGame',str(time.clock()-StartTime)])
         TimeFile.flush()
 
         
@@ -653,7 +672,7 @@ def MainEvent(screen,Data,DataFile,Pay,PayFile, TimeStamp,TimeFile, OpponentFile
             
         if confirm==0:
 
-            TimeStamp.writerow([round,'ChoiceUncaught',str(time.clock()-StartTime)])
+            TimeStamp.writerow([round,practice,'ChoiceUncaught',str(time.clock()-StartTime)])
             TimeFile.flush()
             
             Payoff = 0   
@@ -676,13 +695,13 @@ def MainEvent(screen,Data,DataFile,Pay,PayFile, TimeStamp,TimeFile, OpponentFile
             #flipupdate()
             #pygame.time.wait(500) 
             
-            WriteList = [SID,str(round),str(drawRound),str(EndowmentA),str(EndowmentB),str(Award),'/','/','/']
+            WriteList = [SID,str(round),practice,str(drawRound),str(EndowmentA),str(EndowmentB),str(Award),'/','/','/']
             Data.writerow(WriteList)
             DataFile.flush()
             
-            WriteList = [str(round),str(EndowmentA),str(Award),'/','/','/']
-            Pay.writerow(WriteList)
-            PayFile.flush()
+            #WriteList = [str(round),practice,str(EndowmentA),str(Award),'/','/','/']
+            #Pay.writerow(WriteList)
+            #PayFile.flush()
             
             FinalPayoff = FinalPayoff + Payoff
             FinalCount = FinalCount + 1
@@ -699,7 +718,7 @@ def MainEvent(screen,Data,DataFile,Pay,PayFile, TimeStamp,TimeFile, OpponentFile
             break
             
         #MainLock.acquire()
-        TimeStamp.writerow([round,'ChoiceMade',str(time.clock()-StartTime)])
+        TimeStamp.writerow([round,practice,'ChoiceMade',str(time.clock()-StartTime)])
         TimeFile.flush()
         
         
@@ -749,7 +768,7 @@ def MainEvent(screen,Data,DataFile,Pay,PayFile, TimeStamp,TimeFile, OpponentFile
             screen.blit(textD, textposD)
         
         #MainLock.acquire()
-        TimeStamp.writerow([round,'StartFeedback',str(time.clock()-StartTime)])
+        TimeStamp.writerow([round,practice,'StartFeedback',str(time.clock()-StartTime)])
         TimeFile.flush()  
             
         # bars for endowments and award
@@ -786,13 +805,13 @@ def MainEvent(screen,Data,DataFile,Pay,PayFile, TimeStamp,TimeFile, OpponentFile
         flipupdate()
 
         # write datafile
-        WriteList = [SID,str(round),str(drawRound),str(EndowmentA),str(EndowmentB),str(Award),str(InvestA),str(InvestB),str(Payoff)]
+        WriteList = [SID,str(round),practice,str(drawRound),str(EndowmentA),str(EndowmentB),str(Award),str(InvestA),str(InvestB),str(Payoff)]
       
 
         Data.writerow(WriteList)
         DataFile.flush()
         if RoundPaid.count(round) > 0:
-            WriteList = [str(round),str(EndowmentA),str(Award),str(InvestA),str(InvestB),str(Payoff)]
+            WriteList = [str(round),practice,str(EndowmentA),str(Award),str(InvestA),str(InvestB),str(Payoff)]
             Pay.writerow(WriteList)
             PayFile.flush()
             FinalPayoff = FinalPayoff + Payoff
@@ -807,7 +826,7 @@ def MainEvent(screen,Data,DataFile,Pay,PayFile, TimeStamp,TimeFile, OpponentFile
         #pygame.time.wait(2000)
         
         #MainLock.acquire()
-        TimeStamp.writerow([round,'EndFeedback',str(time.clock()-StartTime)])
+        TimeStamp.writerow([round,practice,'EndFeedback',str(time.clock()-StartTime)])
         TimeFile.flush() 
        
         #waitforspacebar()
@@ -841,23 +860,25 @@ SID = raw_input("Please input subject ID: ")
 #OpponentFile = "data" + raw_input("Please input block number: ") + ".csv"
 
 
+
+
 # open data file
 DataFileName = DataPath + str(SID)+'.csv'
 DataFile = open(DataFileName,"wb")
 Data = csv.writer(DataFile)
-Data.writerow(['SID','Round','DrawRound','MyEndowment','OpponentEndowment','Award','MyInvestment','OpponentInvest','MyPayoff'])
+Data.writerow(['SID','Round','Practice','DrawRound','MyEndowment','OpponentEndowment','Award','MyInvestment','OpponentInvest','MyPayoff'])
 DataFile.flush()
 # this is the file for payment
 PayFileName = DataPath + str(SID)+'_pay.csv'
 PayFile = open(PayFileName,"wb")
 Pay = csv.writer(PayFile)
-Pay.writerow(['Round','MyEndowment','Award','MyInvest','OppentInvest','MyPayoff'])
+Pay.writerow(['Round','Practice','MyEndowment','Award','MyInvest','OppentInvest','MyPayoff'])
 PayFile.flush()
 # this is for time stamp
 TimeFileName = DataPath + str(SID)+'_time.csv'
 TimeFile = open(TimeFileName,"wb")
 TimeStamp = csv.writer(TimeFile)
-TimeStamp.writerow(['Round','Event','Time'])
+TimeStamp.writerow(['Round','Practice','Event','Time'])
 TimeFile.flush()
 # this is for payment for all players
 ResultFileName = DataPath +'result.csv'
@@ -894,7 +915,11 @@ FinalCount = 0
 OpponentFile = "data.csv"
 #OpponentFile = "data2" + ".csv"
 #MainEvent(screen,Data,DataFile,Pay,PayFile,TimeStamp,TimeFile, OpponentFile, StartTime,SID,'weak')
-MainEvent(screen,Data,DataFile,Pay,PayFile,TimeStamp,TimeFile, OpponentFile, StartTime,SID,'strong',doInstructions=True)
+MainEvent(screen,Data,DataFile,Pay,PayFile,TimeStamp,TimeFile, OpponentFile, StartTime,SID,'strong',doInstructions=True,practice=1)
+promptRepeat()
+
+
+MainEvent(screen,Data,DataFile,Pay,PayFile,TimeStamp,TimeFile, OpponentFile, StartTime,SID,'strong',doInstructions=False,practice=0)
 
 DataFile.close()
 PayFile.close()
